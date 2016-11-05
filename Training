@@ -1,0 +1,259 @@
+# Make sure you have the following understood before following the doc
+
+1) Any files mentioned here (eg:default.rb,blue.rb) are located in the day3/chef directory 
+
+2) All knife ,berks commands has to be executed from chef-repo directory (Downloaded starter kit)
+
+3) All vagrant command has to be executed from vagrant_boxes/chef direcctory
+
+4)All chef-client commands has to be exeucted on the linux clients (After vagrant ssh,if vagrant ssh command fails then search for ssh.exe in your computer,locate the path and then add the path to the SYSTEM PATH variable)
+
+5)Before copying any files ,read the files and ask any questions if you have
+
+Download and install chefdk for windows
+
+Install the below vagrant plugins (Run the command)
+
+vagrant plugin install vagrant-hostmanager
+
+do a vagrant up chefnode1 chefnode2
+
+Initially login to each box and set the root password to root123 (vagrant ssh chefnode1,vagrant ssh chefnode2 )
+
+sudo passwd root
+
+run apt-get update on both chefnode1 and chefnode2
+
+access url https://getchef.opscode.com/login and signup for a free hosted account
+
+login to hosted chef and create a new organization
+
+download starter kit 
+
+extract the starter kit downloaded earlier 
+
+make sure you have a chef-repo directory created ,all knife ,berks commands has to be run from here
+
+
+Confirm that you are able to execure the below command from host
+
+ping chefnode1
+ping chefnode2
+
+
+
+execute the command and confirm that the output is empty
+
+knife node list
+
+
+
+Bootstraping:
+-------------------------
+AWS
+-----
+knife bootstrap x.x.x.x --ssh-user ubuntu --sudo --identity-file ./.chef/mykey.pem
+  
+Non AWS
+-----
+  
+knife bootstrap x.x.x.x --ssh-user root
+
+(x.x.x.x = ip address of your chefnode1 and chefnode2)
+  
+once bootstrap is completed execute 
+
+knife node list  
+
+and confirm that you have the newly added machine avialable on the command promt
+  
+create a new cookbook by typing 
+
+berks cookbook COOKBOOK_NAME (Make sure you are under chef-repo/cookbooks directory,which you created by downloading the starter kit)
+
+open recipe/default.rb under the new cookbook folder in a notepad and add the below line
+
+*****************
+
+package 'apache2' do
+action :install
+
+end
+
+******************
+
+go to the cookbook directory theough CMD and execute the below commands
+
+berks install
+
+berks upload --no-freeze
+
+confirm that new cookbook is uploaded to the server
+
+Assign the cookbok to the node run list 
+
+knife node run_list add chefnode1 'COOKBOOKNAME'
+
+once added login to chefnode1 and execute the below commands
+
+(make sure ypu ar logging using root ,once done with vagrant ssh you need to type su - ,enter root password and login)
+
+chef-client --why-run
+
+(Above command will just simulate execution)
+
+chef-client
+
+(Will execute the command)
+
+confirm that cookbook is executed. 
+
+Now go to your browser and access http://chefnode1 ,confirm that you are getting a web page,if note. do a 
+
+vagrant ssh chefnode1   
+sudo service apache2 restart
+confirm that you are getting a web page (Please remmber that http by default listen pn port 80)
+
+
+Once done go to the cookbook you created and copy blue.rb to the recipes directory
+
+copy iamlocatedinthefiledirectory.txt to the files directory
+
+execute the below commands
+
+berks install
+
+berks upload --no-freeze
+
+knife node run_list add chefnode2 'COOKBOOKNAME::blue'
+
+chef-client --why-run
+
+(Above command will just simulate execution)
+
+chef-client
+
+(Will execute the command)
+
+
+go to your browser and confirm that 
+
+http://chefnode2:8080 takes you to the tomcat web page
+
+
+and also a file  /tmp/comingfromblue.txt be present at the chefnode2
+
+
+#Can you comeup with a plan to install jenkins using chf now? (hints: tomcat,jenkins.war)
+
+
+Modify default.rb (present unedr day3 folder ,update with your name and cell number ) and copy to the attributes directory of earlier created cookbook
+
+add the below lines to default.rb of the the existing cookbook recipes folder
+----
+template '/vagrant/important.conf' do
+  source 'sample_template.erb'
+  owner 'root'
+  group 'root'
+  mode '0644'
+end
+---------------------
+
+copy sample_template.erb to templates directory
+
+execute the below commands
+
+berks install
+
+berks upload --no-freeze
+
+chef-client
+
+Open '/vagrant/important.conf' and confirm that the file is updated witht the (Phone number,name information you provided in the attributes directory) you have provided"
+
+
+
+#Can you come with a plan to change the default port number of tomcat instalaltion as per the attributes you are passsing (hints:tomcat configuration 
+file,templates,attributes)
+
+
+berks cookbook library_and_custom_resource
+cd libraries
+copy external_class.rb to libraries
+copy input.txt to default folder and file
+
+update default.rb under recipe directory as below
+
+************************************************
+new_object=Blue.new()
+out_path=new_object.just_say_hello()
+
+cookbook_file out_path do
+  source 'input.txt'
+  owner 'root'
+  group 'root'
+  mode '0644'
+end
+
+*****************************************************
+
+upload the cookbook and add the cookbook to the run list of the node and do a chef-client
+
+Note: here we are calling a class definition from an external ruby script and then using the return value inside the recipe 
+
+
+Copy webapp.rb to resources directory of the earlier created cookbook
+
+Upload the cookbook
+
+Once done create a new cookbook
+
+
+update the below lines to default.rb
+
+=--------------------------------------
+library_and_custom_resource_webapp 'this_is_a_test'  do 
+
+action :uninstall
+
+end
+--------------------------------------
+
+Upload the cookbook and add to the node run list do a chef-client
+
+
+Confirm that apache is uninstalled
+
+
+change the recipe as below 
+--------------------------------------
+library_and_custom_resource_webapp 'this_is_a_test'  do 
+
+action :deploytoprod
+
+end
+--------------------------------------
+
+upload and do a chef client and confirm that apache is back running
+
+
+Chef documentation on resources
+
+https://docs.chef.io/resource.html
+
+Libraries 
+
+https://docs.chef.io/libraries.html
+https://www.chef.io/blog/2014/03/12/writing-libraries-in-chef-cookbooks/
+
+Custom resources
+
+https://docs.chef.io/custom_resources.html
+
+json
+
+http://www.w3schools.com/json/
+
+Databag
+https://coderanger.net/data-bags/
+https://docs.chef.io/data_bags.html
