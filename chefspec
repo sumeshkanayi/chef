@@ -1,0 +1,159 @@
+Getting started with ChefSpec
+
+In order to get started with ChefSpec, create a new cookbook directory (here it is $HOME/cookbooks/mycookbook) along with a recipes and spec directory:
+
+mkdir -p ~/cookbooks/mycookbook
+mkdir -p ~/cookbooks/mycookbook/recipes
+mkdir -p ~/cookbooks/mycookbook/spec
+Now you will need a simple metadata.rb file inside your cookbook (here, this will be ~/cookbooks/mycookbook/metadata.rb):
+
+maintainer       "Your name here"
+maintainer_email "you@domain.com"
+license         "Apache"
+description     "Simple cookbook"
+long_description "Super simple cookbook"
+version         "1.0"
+supports         "debian"
+Once we have this, we now have the bare bones of a cookbook that we can begin to add recipes and tests to.
+
+Installing ChefSpec
+
+In order to get started with ChefSpec, you will need to install a gem that contains the ChefSpec libraries and all the supporting components. Not surprisingly, that gem is named chefspec and can be installed simply by running the following:
+
+gem install chefspec
+However, because Ruby gems often have a number of dependencies, the Ruby community has built a tool called Bundler to manage gem versions that need to be installed. Similar to how RVM provides interpreter-level version management and a way to keep your gems organized, Bundler provides gem-level version management. We will use Bundler for two reasons. In this case, we want to limit the number of differences between the versions of software you will be installing and the versions the author has installed to ensure that things are as similar as possible; secondly, this extends well to releasing production software—limiting the number of variables is critical to consistent and reliable behavior.
+
+Locking your dependencies in Ruby
+
+Bundler uses a file, specifically named Gemfile, to describe the gems that your project is dependent upon. This file is placed in the root of your project, and its contents inform Bundler which gems you are using, what versions to use, and where to find gems so that it can install them as needed.
+
+For example, here is the Gemfile that is being used to describe the gem versions that are used when writing these examples:
+
+source 'https://rubygems.org'
+
+gem 'chef',       '11.10.0'
+gem 'chefspec',   '3.2.0'
+gem 'colorize',   '0.6.0'
+Using this will ensure that the gems you install locally match the ones that are used when writing these examples. This should limit the differences between your local testing environments if you run these examples on your workstation.
+
+In order to use a Gemfile, you will need to have Bundler installed. If you are using RVM, Bundler should be installed with every gemset you create; if not, you will need to install it on your own via the following code:
+
+gem install bundler
+Once Bundler is installed and a Gemfile that contains the previous lines is placed in the root directory of your cookbook, you can execute bundle install from inside your cookbook's directory:
+
+user@host:~/cookbooks/mycookbook $> bundle install
+Bundler will parse the Gemfile in order to download and install the versions of the gems that are defined inside. Here, Bundler will install chefspec, chef, and colorize along with any dependencies those gems require that you do not already have installed.
+
+Creating a simple recipe and a matching ChefSpec test
+
+Once these dependencies are installed, you will want to create a spec test inside your cookbook and a matching recipe. In keeping with the TDD philosophy, we will first create a file, default_spec.rb, in the spec directory. The name of the spec file should match the name of the recipe file, only with the addition of _spec at the end. If you have a recipe file named default.rb (which most cookbooks will), the matching spec test would be contained in a file named default_spec.rb. Let's take a look at a very simple recipe and a matching ChefSpec test.
+
+Writing a ChefSpec test
+
+The test, shown as follows, will verify that our recipe will create a new file, /tmp/myfile.txt:
+
+require 'chefspec'
+
+describe 'mycookbook::default' do
+let(:chef_run) {
+   ChefSpec::Runner.new.converge(described_recipe)
+}  
+
+it 'creates a file' do    
+   expect(chef_run).to create_file('/tmp/myfile.txt')  
+end
+end
+Here, RSpec uses a describe block similar to the way Chef uses a resource block (again, blocks are identified by the do ... end syntax or code contained inside curly braces) to describe a resource, in this case, the default recipe inside of mycookbook. The described resource has a number of examples, and each example is described by an it block such as the following, which comes from the previous spec test:
+
+it 'creates a file' do
+expect(chef_run).to create_file('/tmp/myfile.txt')  
+end
+The string given to the it block provides the example with a human-readable description of what the example is testing; in this case, we are expecting that the recipe creates a file. When our recipes are run through ChefSpec, the resources described are not actually created or modified. Instead, a model of what would happen is built as the recipes are executed. This means that ChefSpec can validate that an expected action would have occurred if the recipe were to be executed on an end host during a real client run.
+
+It's important to note that each example block resets expectations before it is executed, so any expectations defined inside of a given test will not fall through to other tests.
+
+Because most of the tests will involve simulating a Chef client run, we want to run the simulation every time. There are two options: execute the code in every example or use a shared resource that all the tests can take advantage of. In the first case, the test will look something like the following:
+
+it 'creates a file' do
+chef_run = ChefSpec::Runner.new.converge(described_recipe)  
+expect(chef_run).to create_file('/tmp/myfile.txt')  
+end
+The primary problem with this approach is remembering that every test will have to have the resource running at the beginning of the test. This translates to a large amount of duplicated code, and if the client needs to be configured differently, then the code needs to be changed for all the tests. To solve this problem, RSpec provides access to a shared resource through a built-in method, let. Using let allows a test to define a shared resource that is cached for each example and reset as needed for the following examples. This resource is then accessible inside of each block as a local variable, and RSpec takes care of knowing when to initialize it as needed.
+
+Our example test uses a let block to define the chef_run resource, which is described as a new ChefSpec runner for the described recipe, as shown in the following code:
+
+let(:chef_run) {
+ChefSpec::Runner.new.converge(described_recipe)
+}  
+Here, described_recipe is a ChefSpec shortcut for the name of the recipe provided in the describe block. Again, this is a DRY (don't repeat yourself) mechanism that allows us to rename the recipe and then only have to change the name of the description rather than hunt through the code. These techniques make tests better able to adapt to changes in names and resources, which reduces code rot as time goes by.
+
+Building our recipe
+
+The recipe, as defined here, is a very simple recipe whose only job is to create a simple file, /tmp/myfile.txt, on the end host:
+
+file "/tmp/myfile.txt" do
+owner "root"  
+group "root"  
+mode "0755"  
+action :create
+end
+Put this recipe into the recipes/default.rb file of your cookbook so that you have the following file layout:
+
+mycookbook/
+|- recipes/
+|     |- default.rb
+|- spec/
+       |- default_spec.rb 
+Executing tests
+
+In order to run the tests, we use the rspec application. This is a Ruby script that comes with the RSpec gem, which will run the test scripts as spec tests using the RSpec language. It will also use the ChefSpec extensions because in our spec test, we have included them via the line require 'chefspec' at the top of our default_spec.rb file. Here, rspec is executed through Bundler to ensure that the desired gem versions, as specified in our Gemfile, are used at runtime without having to explicitly load them. This is done using the bundle exec command:
+
+bundle exec rspec spec/default_spec.rb
+This will run RSpec using Bundler and process the default_spec.rb file. As it runs, you will see the results of your tests, a . (period) for tests that pass, and an F for any tests that fail. Initially, the output from rspec will look like this:
+
+Finished in 0.17367 seconds
+1 example, 0 failures
+RSpec says that it completed the execution in 0.17 seconds and that you had one example with zero failures. However, the results would be quite different if we have a failed test; RSpec will tell us which test failed and why.
+
+Understanding failures
+
+RSpec is very good at telling you what went wrong with your tests; it doesn't do you any good to have failing tests if it's impossible to determine what went wrong. When an expectation in your test is not met, RSpec will tell you which expectation was unmet, what the expected value was, and what value was seen.
+
+In order to see what happens when a test fails, modify your recipe to ensure that the test fails. Look in your recipe for the following file resource:
+
+file "/tmp/myfile.txt" do
+Replace the file resource with a different filename, such as myfile2.txt, instead of myfile.txt, like the following example:
+
+file "/tmp/myfile2.txt" do
+Next, rerun your spec tests; you will see that the test is now failing because the simulated Chef client execution did something that was unexpected by our spec test. An example of this new execution would look like the following:
+
+[user@host]$ bundle exec rspec spec/default_spec.rb
+F
+
+Failures:
+1) my_cookbook::default creates a file
+     Failure/Error: expect(chef_run).to create_file('/tmp/myfile.txt')
+       expected "file[/tmp/myfile.txt]" with action :create to be in Chef run. Other file resources:
+         file[/tmp/myfile2.txt]
+     # ./spec/default_spec.rb:9:in `block (2 levels) in <top (required)>'
+Finished in 0.18071 seconds
+1 example, 1 failure
+Notice that instead of a dot, the test results in an F; this is because the test is now failing. As you can see from the previous output, RSpec is telling us the following:
+
+The creates a file example in the 'my_cookbook::default' test suite failed
+Our example failed in the ninth line of default_spec.rb (as indicated by the line that contained ./spec/default_spec.rb:9)
+The file resource /tmp/myfile.txt was expected to be operated on with the :create action
+The recipe interacted with a file resource /tmp/myfile2.txt instead of /tmp/myfile.txt
+RSpec will continue to execute all the tests in the files specified on the command line, printing out their status as to whether they passed or failed. If your tests are well written and run in isolation, then they will have no effect on one another; it should be safe to execute all of them even if some fail so that you can see what is no longer working.
+
+Summary
+
+RSpec with ChefSpec extensions provides us with incredibly powerful tools to test our cookbooks and recipes. In this article, you have seen how to develop basic ChefSpec tests for your recipes, organize your spec tests inside of your cookbook, execute and analyze the output of your spec tests, and simulate the execution of your recipes across multiple platforms.
+
+Resources for Article:
+
+ Further resources on this subject:
+
+Chef Infrastructure [article]
+Going Beyond the Basics [article]
+Setting Up a Development Environment [article]
