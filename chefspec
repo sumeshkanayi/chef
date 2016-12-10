@@ -1,3 +1,5 @@
+sudo apt-get install gcc make ruby-dev zlib1g-dev liblzma-dev
+
 Getting started with ChefSpec
 
 In order to get started with ChefSpec, create a new cookbook directory (here it is $HOME/cookbooks/mycookbook) along with a recipes and spec directory:
